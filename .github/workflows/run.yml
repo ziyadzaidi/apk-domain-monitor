@@ -1,0 +1,28 @@
+name: Daily APK Domain Checker
+
+on:
+  schedule:
+    - cron: '30 05 * * *' # Yeh rozana Pakistani waqt ke mutabiq subah 10:30 baje khud chalega
+  workflow_dispatch: # Is se aap manually bhi jab chahein button daba kar chala sakte hain
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Monitor Script
+        env:
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+        run: python monitor.py
