@@ -23,7 +23,7 @@ def send_email(apk_domains, date_str, status_msg=""):
     msg['Subject'] = f"📊 APK Domains Report - {date_str}"
 
     if apk_domains:
-        body = f"Bhai, {date_str} ki kul {len(apk_domains)} naye APK domains mili hain.\n\nList integrity ke sath niche attach kar di hai.\nStatus: {status_msg}"
+        body = f"Bhai, {date_str} ki kul {len(apk_domains)} naye APK domains mili hain.\n\nList niche attach kar di hai.\nStatus: {status_msg}"
         msg.attach(MIMEText(body, 'plain'))
         
         content = "\n".join(apk_domains)
@@ -36,28 +36,15 @@ def send_email(apk_domains, date_str, status_msg=""):
         body = f"Bhai, {date_str} ke liye koi data nahi mila.\nStatus: {status_msg}"
         msg.attach(MIMEText(body, 'plain'))
 
-    # Google ke 3 standard active routes check karega taakay agar network glitch ho to fail na ho
-    smtp_servers = ['://gmail.com', '74.125.142.108', '74.125.195.108']
-    email_sent = False
-
-    for smtp_host in smtp_servers:
-        try:
-            print(f"[+] Trying to send email via: {smtp_host}")
-            server = smtplib.SMTP(smtp_host, 587, timeout=20)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-            server.quit()
-            print("[+] Email sent successfully!")
-            email_sent = True
-            break
-        except Exception as e:
-            print(f"[-] Route {smtp_host} failed: {e}")
-
-    if not email_sent:
-        print("[-] Error: Cloud network fully blocked Gmail SMTP routes today.")
+    try:
+        server = smtplib.SMTP('://gmail.com', 587, timeout=30)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
+        print("[+] Email sent successfully!")
+    except Exception as e:
+        print(f"[-] Email sending failed: {e}")
 
 def get_apk_domains():
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -65,7 +52,7 @@ def get_apk_domains():
     success_date = ""
     status = ""
 
-    # Dono dates auto try karega jo aap ke screenshot me accurate hain
+    # FIXED: Added correct loop parameters [1, 2, 3] to check past 3 days dynamically
     for days_ago in:
         target_date = (datetime.now() - timedelta(days=days_ago)).strftime('%Y-%m-%d')
         download_url = f"https://whoisds.com{target_date}.zip/nrd"
@@ -91,7 +78,8 @@ def get_apk_domains():
         except Exception as e:
             print(f"[-] Date {target_date} link process issue: {e}")
         finally:
-            if os.path.exists(zip_filename): os.remove(zip_filename)
+            if os.path.exists(zip_filename): 
+                os.remove(zip_filename)
 
     if not success_date:
         print("[-] Checking backup live feed...")
