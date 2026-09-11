@@ -14,7 +14,7 @@ def send_email(apk_domains, date_str, status_msg=""):
     receiver_email = os.environ.get("RECEIVER_EMAIL")
 
     if not sender_email or not sender_password or not receiver_email:
-        print("[-] Secrets missing.")
+        print("[-] Error: GitHub Secrets missing.")
         return
 
     msg = MIMEMultipart()
@@ -33,23 +33,24 @@ def send_email(apk_domains, date_str, status_msg=""):
         part.add_header('Content-Disposition', f'attachment; filename="apk_domains_{date_str}.txt"')
         msg.attach(part)
     else:
-        body = f"Bhai, {date_str} ke liye data filter nahi ho saka.\nStatus: {status_msg}"
+        body = f"Bhai, {date_str} ke liye koi APK domains nahi mili ya feed down thi.\nStatus: {status_msg}"
         msg.attach(MIMEText(body, 'plain'))
 
     try:
-        server = smtplib.SMTP('://gmail.com', 587)
+        # Fixed single port 587 with strict standard method
+        server = smtplib.SMTP('://gmail.com', 587, timeout=30)
         server.starttls()
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, receiver_email, msg.as_string())
         server.quit()
-        print("[+] Confirmation email sent!")
+        print("[+] Email sent successfully!")
     except Exception as e:
         print(f"[-] Email sending failed: {e}")
 
 def get_apk_domains():
-    # Aaj ki target date (1 ya 2 din purani testing ke liye)
-    target_date = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
-    print(f"[+] Checking WhoisDS for date: {target_date}")
+    # WhoisDS ke layout ke mutabiq correct target date set
+    target_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    print(f"[+] Fetching data for date: {target_date}")
     
     download_url = f"https://whoisds.com{target_date}.zip/nrd"
     zip_filename = f"{target_date}.zip"
@@ -57,40 +58,36 @@ def get_apk_domains():
 
     headers = {'User-Agent': 'Mozilla/5.0'}
     apk_domains = []
-    status = "WhoisDS database copy successful."
+    status = "WhoisDS database processed."
 
-    response = requests.get(download_url, headers=headers, stream=True, timeout=20)
-    
-    # BACKUP STRATEGY: Agar WhoisDS khali ho ya error de, to openSquat ka direct backup fetch karo
-    if response.status_code != 200:
-        print("[-] WhoisDS failed. Trying Backup source (openSquat public domain feed)...")
-        backup_url = "https://githubusercontent.com" # Stable internal testing feed
-        try:
-            res = requests.get(backup_url, headers=headers, timeout=20)
-            if res.status_code == 200:
-                domains = res.text.split('\n')
-                for d in domains:
-                    if 'apk' in d.lower():
-                        apk_domains.append(d.strip().lower())
-                status = "WhoisDS was down/empty, fetched from fallback live feed."
-        except Exception as e:
-            status = f"Both sources failed or data was unavailable today. Error: {e}"
-    else:
-        with open(zip_filename, 'wb') as f:
-            f.write(response.content)
-        try:
+    try:
+        response = requests.get(download_url, headers=headers, stream=True, timeout=20)
+        if response.status_code == 200:
+            with open(zip_filename, 'wb') as f:
+                f.write(response.content)
+            
             with zipfile.ZipFile(zip_filename, 'r') as z:
                 with z.open(txt_filename) as f:
                     for line in f:
                         domain = line.decode('utf-8', errors='ignore').strip().lower()
                         if 'apk' in domain:
                             apk_domains.append(domain)
-        except Exception as e:
-            status = f"Zip extraction error: {e}"
-        finally:
-            if os.path.exists(zip_filename): os.remove(zip_filename)
+        else:
+            print("[-] WhoisDS standard link returned 404. Trying backup cloud feed...")
+            backup_url = "https://githubusercontent.com"
+            res = requests.get(backup_url, headers=headers, timeout=20)
+            if res.status_code == 200:
+                domains = res.text.split('\n')
+                for d in domains:
+                    if 'apk' in d.lower():
+                        apk_domains.append(d.strip().lower())
+                status = "Fetched successfully via live backup feed."
+    except Exception as e:
+        status = f"Process issue: {e}"
+    finally:
+        if os.path.exists(zip_filename): 
+            os.remove(zip_filename)
 
-    # Har haal mein email send hoga taakay confirmation miley
     send_email(apk_domains, target_date, status)
 
 if __name__ == "__main__":
