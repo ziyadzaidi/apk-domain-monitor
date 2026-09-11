@@ -2,7 +2,7 @@ name: Daily APK Domain Checker
 
 on:
   schedule:
-    - cron: '30 05 * * *' # Yeh rozana Pakistani waqt ke mutabiq subah 10:30 baje khud chalega
+    - cron: '00 14 * * *' # Yeh rozana Pakistani waqt ke mutabiq sham 7 baje khud chalega
   workflow_dispatch: # Is se aap manually bhi jab chahein button daba kar chala sakte hain
 
 jobs:
